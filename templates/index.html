@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Game Score Tracker</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        input, button { margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Game Score Tracker</h1>
+
+    <h2>Add Score</h2>
+    <input type="text" id="name" placeholder="Player Name">
+    <input type="number" id="score" placeholder="Score">
+    <input type="date" id="date">
+    <button onclick="addScore()">Submit</button>
+    <p id="add-result"></p>
+
+    <h2>All Scores</h2>
+    <button onclick="loadScores()">Refresh Scores</button>
+    <ul id="score-list"></ul>
+
+    <script>
+        async function addScore() {
+            const name = document.getElementById('name').value;
+            const score = document.getElementById('score').value;
+            const date = document.getElementById('date').value;
+
+            const response = await fetch('/add-score', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, score, date })
+            });
+
+            const result = await response.json();
+            document.getElementById('add-result').innerText = result.message || result.error;
+            if (response.ok) {
+                document.getElementById('name').value = '';
+                document.getElementById('score').value = '';
+                document.getElementById('date').value = '';
+                loadScores();
+            }
+        }
+
+        async function loadScores() {
+            const response = await fetch('/list-scores');
+            const scores = await response.json();
+            const list = document.getElementById('score-list');
+            list.innerHTML = '';
+            scores.forEach(([name, score, date]) => {
+                const li = document.createElement('li');
+                li.textContent = `${name} - ${score} - ${date}`;
+                list.appendChild(li);
+            });
+        }
+
+        window.onload = loadScores;
+    </script>
+</body>
+</html>
