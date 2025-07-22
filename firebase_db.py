@@ -1,12 +1,7 @@
-# app.py
-from flask import Flask, request, jsonify, render_template
 import firebase_db
+from flask import Flask, request, jsonify
 
 app = Flask(__name__)
-
-@app.route('/')
-def index():
-    return render_template('index.html')
 
 @app.route('/add-score', methods=['POST'])
 def add_score():
@@ -24,6 +19,3 @@ def add_score():
 def list_scores():
     scores = firebase_db.get_scores()
     return jsonify(scores)
-
-if __name__ == '__main__':
-    app.run(debug=True)

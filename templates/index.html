@@ -4,8 +4,47 @@
     <meta charset="UTF-8">
     <title>Game Score Tracker</title>
     <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        input, button { margin: 5px; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            padding: 30px;
+        }
+        h1 {
+            color: #0056b3;
+        }
+        h2 {
+            margin-top: 40px;
+        }
+        input, button {
+            margin: 5px;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #0056b3;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #003d80;
+        }
+        #score-list {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        #score-list li {
+            background-color: white;
+            margin-bottom: 8px;
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        #add-result {
+            margin-top: 10px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -22,41 +61,110 @@
     <button onclick="loadScores()">Refresh Scores</button>
     <ul id="score-list"></ul>
 
-    <script>
+    <script type="module">
+        // Firebase 配置与初始化
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "", // Still missing, leave blank or retrieve from Firebase console
+            authDomain: "game-score-tracker-001.firebaseapp.com",
+            projectId: "game-score-tracker-001",
+            storageBucket: "game-score-tracker-001.appspot.com",
+            messagingSenderId: "213258974448",
+            appId: "" // Still missing, leave blank or retrieve from Firebase console
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
         async function addScore() {
             const name = document.getElementById('name').value;
-            const score = document.getElementById('score').value;
+            const score = parseInt(document.getElementById('score').value);
             const date = document.getElementById('date').value;
 
-            const response = await fetch('/add-score', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, score, date })
-            });
+            if (!name || isNaN(score) || !date) {
+                document.getElementById('add-result').innerText = 'All fields are required.';
+                return;
+            }
 
-            const result = await response.json();
-            document.getElementById('add-result').innerText = result.message || result.error;
-            if (response.ok) {
+            try {
+                const docRef = await addDoc(collection(db, "scores"), {
+                    name,
+                    score,
+                    date
+                });
+                console.log("Document written with ID: ", docRef.id);
+                document.getElementById('add-result').innerText = `Score added successfully (ID: ${docRef.id})`;
                 document.getElementById('name').value = '';
                 document.getElementById('score').value = '';
                 document.getElementById('date').value = '';
-                loadScores();
+            } catch (e) {
+                console.error("Error adding score: ", e);
+                document.getElementById('add-result').innerText = 'Error adding score: ' + e;
             }
         }
 
-        async function loadScores() {
-            const response = await fetch('/list-scores');
-            const scores = await response.json();
-            const list = document.getElementById('score-list');
-            list.innerHTML = '';
-            scores.forEach(([name, score, date]) => {
-                const li = document.createElement('li');
-                li.textContent = `${name} - ${score} - ${date}`;
-                list.appendChild(li);
-            });
+        // 实时监听分数变动
+        const scoresRef = collection(db, "scores");
+        const q = query(scoresRef, orderBy("date", "desc"));
+
+        async function deleteScore(id) {
+            try {
+                await deleteDoc(doc(db, "scores", id));
+                console.log("Deleted document with ID:", id);
+            } catch (e) {
+                console.error("Error deleting document: ", e);
+            }
         }
 
-        window.onload = loadScores;
+        async function editScore(id, oldData) {
+            const name = prompt("Edit name:", oldData.name);
+            const score = prompt("Edit score:", oldData.score);
+            const date = prompt("Edit date (YYYY-MM-DD):", oldData.date);
+
+            if (!name || !score || !date) {
+                alert("All fields are required.");
+                return;
+            }
+
+            try {
+                await updateDoc(doc(db, "scores", id), {
+                    name,
+                    score: parseInt(score),
+                    date
+                });
+                console.log("Updated document with ID:", id);
+            } catch (e) {
+                console.error("Error updating document: ", e);
+            }
+        }
+
+        onSnapshot(q, (snapshot) => {
+            const list = document.getElementById('score-list');
+            list.innerHTML = '';
+            snapshot.forEach((docSnap) => {
+                const data = docSnap.data();
+                const li = document.createElement('li');
+                li.textContent = `${data.name} - ${data.score} - ${data.date} `;
+
+                const editBtn = document.createElement('button');
+                editBtn.textContent = 'Edit';
+                editBtn.style.marginLeft = '10px';
+                editBtn.onclick = () => editScore(docSnap.id, data);
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.style.marginLeft = '5px';
+                deleteBtn.onclick = () => deleteScore(docSnap.id);
+
+                li.appendChild(editBtn);
+                li.appendChild(deleteBtn);
+                list.appendChild(li);
+            });
+        });
+
+        window.addScore = addScore;
     </script>
 </body>
 </html>
